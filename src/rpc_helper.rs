@@ -18,7 +18,7 @@ use crate::{
     AMOUNT_PER_USER, POOL_USERS,
 };
 
-pub fn send_funding_transaction(rpc: &Client, config: &NetworkConfig) -> Txid {
+pub fn send_funding_transaction(rpc: &Client, config: &NetworkConfig, fee_amount: Amount) -> Txid {
     info!("Creating funding transaction:");
     info!("  Amount per user: {}", AMOUNT_PER_USER);
     info!("  Number of users: {}", POOL_USERS);
@@ -55,7 +55,7 @@ pub fn send_funding_transaction(rpc: &Client, config: &NetworkConfig) -> Txid {
     
     let outputs = vec![
         TxOut {
-            value: AMOUNT_PER_USER * POOL_USERS.try_into().unwrap(),
+            value: AMOUNT_PER_USER * POOL_USERS.try_into().unwrap() - fee_amount,
             script_pubkey: change_address.assume_checked().script_pubkey(),
         },
     ];

@@ -3,7 +3,6 @@ use bitcoin::Address;
 use bitcoincore_rpc::RpcApi;
 use config::{NetworkConfig, AMOUNT_PER_USER, DUST_AMOUNT, FEE_AMOUNT, POOL_USERS};
 use ctv_scripts::create_pool_address;
-use nostr::nips::nip19::ToBech32;
 use pools::{
     create_all_pools, create_entry_pool_withdraw_hashes, create_exit_pool, process_pool_spend,
 };
@@ -52,7 +51,7 @@ fn main() -> Result<()> {
         })
         .collect();
 
-    let init_wallets_txid = send_funding_transaction(&rpc, &config);
+    let init_wallets_txid = send_funding_transaction(&rpc, &config, FEE_AMOUNT);
     info!("Initial funding transaction ID: {}", init_wallets_txid);
 
     #[cfg(feature = "regtest")]

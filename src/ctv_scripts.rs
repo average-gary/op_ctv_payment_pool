@@ -114,6 +114,11 @@ pub fn create_withdraw_ctv_hash(
             value: AMOUNT_PER_USER - FEE_AMOUNT,
             script_pubkey: withdraw_addr.script_pubkey(),
         },
+        #[cfg(feature = "testnet4")]
+        TxOut {
+            value: Amount::ZERO,
+            script_pubkey: anchor_addr.script_pubkey(),
+        },
         #[cfg(feature = "regtest")]
         TxOut {
             value: FEE_AMOUNT,

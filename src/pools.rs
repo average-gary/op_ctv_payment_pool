@@ -63,9 +63,11 @@ pub fn create_exit_pool(
                 anchor_addr,
                 AMOUNT_PER_USER,
             );
-
+            // Create the Taproot tree with all the CTV hashes and leaves
             let spend_info = create_pool_address(vec![ctv_hash])?;
-
+            info!("  Created TaprootSpendInfo for users {:?}:", combo);
+            info!("    Output key: {}", spend_info.output_key());
+            info!("    Merkle root: {:?}", spend_info.merkle_root());
             Ok((combo, spend_info))
         })
         .collect();

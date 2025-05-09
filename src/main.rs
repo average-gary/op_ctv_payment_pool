@@ -43,6 +43,7 @@ fn main() -> Result<()> {
     info!("Creating pool with {} users \n", POOL_USERS);
 
     // TODO: allow for input for address list with weights.
+    // the leaves of the CTV tree are the withdraw addresses
     let withdraw_addresses: Vec<Address> = (0..POOL_USERS)
         .map(|_| {
             rpc.get_new_address(None, None)
@@ -52,7 +53,7 @@ fn main() -> Result<()> {
         })
         .collect();
 
-    let init_wallets_txid = send_funding_transaction(&rpc, &config, FEE_AMOUNT);
+    let (init_wallets_txid, fee) = send_funding_transaction(&rpc, &config, FEE_AMOUNT);
     info!("Initial funding transaction ID: {}", init_wallets_txid);
 
     #[cfg(feature = "regtest")]
@@ -67,13 +68,14 @@ fn main() -> Result<()> {
     ////////////////////////////////////////////////////////////////////////////
     let mut pools = Vec::new();
     //The last pool will always be the same, regardless of how many users are in the pool (it will allow 2 users to withdraw)
-    let exit_pool = create_exit_pool(&withdraw_addresses, &anchor_addr)?;
-    pools.push(exit_pool);
+    let exit_pool_leaves = create_exit_pool(&withdraw_addresses, &anchor_addr)?;
+    // the taproot spend info for the last pool is the leaves of the CTV tree
+    pools.push(exit_pool_leaves);
 
     /////////////////////////////////////////////////////////////////////////////
     /////////////////////////////CREATE ALL OTHER POOLS//////////////////////////
     ////////////////////////////////////////////////////////////////////////////
-
+    // pop from the front (the leaves are the first in the vec) and create a node and add it to the back of the vec
     create_all_pools(&withdraw_addresses, &anchor_addr, &config, &mut pools);
 
     let total_taproot_spend_info: usize = pools.iter().map(|pool| pool.len()).sum();
@@ -98,6 +100,7 @@ fn main() -> Result<()> {
     let mut pool_0_map = HashMap::new();
     pool_0_map.insert(vec![0], pool_0_spend_info.clone());
     pools.push(pool_0_map);
+    // we have the root of the CTV tree
 
     //////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////FUND POOL WITH PSBT//////////////////////////////////
@@ -108,7 +111,7 @@ fn main() -> Result<()> {
     info!("Initial pool address: {}", pool_0_addr);
 
     //here we will simulate the pool psbt funding transaction
-    let pool_funding_txid = simulate_psbt_signing(&rpc, init_wallets_txid, &pool_0_addr, FEE_AMOUNT)?;
+    let pool_funding_txid = simulate_psbt_signing(&rpc, init_wallets_txid, &pool_0_addr, fee)?;
     info!("Pool funding transaction details:");
     info!("  Transaction ID: {}", pool_funding_txid);
     info!("  Source TXID: {}", init_wallets_txid);

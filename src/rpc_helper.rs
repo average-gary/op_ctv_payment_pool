@@ -18,7 +18,7 @@ use crate::{
     AMOUNT_PER_USER, POOL_USERS,
 };
 
-pub fn send_funding_transaction(rpc: &Client, config: &NetworkConfig, fee_amount: Amount) -> Txid {
+pub fn send_funding_transaction(rpc: &Client, config: &NetworkConfig, fee_amount: Amount) -> (Txid, Amount) {
     info!("Creating funding transaction:");
     info!("  Amount per user: {}", AMOUNT_PER_USER);
     info!("  Number of users: {}", POOL_USERS);
@@ -58,10 +58,11 @@ pub fn send_funding_transaction(rpc: &Client, config: &NetworkConfig, fee_amount
     info!("  Total input amount: {}", total_input);
     info!("Total inputs: {:?}", inputs);
     let fee = rpc.estimate_smart_fee(1, None).unwrap().fee_rate.unwrap();
+    // TODO: estimate the size of the transaction more better
     let fee = Amount::from_sat((fee.to_sat() as f64 * 250.0) as u64); // Estimate for ~250 byte tx
     info!("  Estimated fee: {} ({} sats/vB)", fee, fee.to_sat() as f64 / 250.0);
-    let amount_to_send = AMOUNT_PER_USER * POOL_USERS.try_into().unwrap() + fee;
-    let change = total_input - amount_to_send;
+    let amount_to_fund = AMOUNT_PER_USER * POOL_USERS.try_into().unwrap() + fee;
+    let change = total_input - amount_to_fund;
     
     if change < Amount::ZERO {
         panic!("Not enough input to cover outputs and fee");
@@ -69,7 +70,7 @@ pub fn send_funding_transaction(rpc: &Client, config: &NetworkConfig, fee_amount
     
     let outputs = vec![
         TxOut {
-            value: amount_to_send,
+            value: amount_to_fund,
             script_pubkey: change_address.assume_checked().script_pubkey(),
         },
         TxOut {
@@ -78,6 +79,12 @@ pub fn send_funding_transaction(rpc: &Client, config: &NetworkConfig, fee_amount
         },
     ];
     info!("  Outputs: {:?}", outputs);
+    let total_output: Amount = outputs.iter().map(|out| Amount::from_sat(out.value)).sum();
+    if total_input < total_output {
+        panic!("Total input ({}) less than total output ({}), not enough for fees", total_input, total_output);
+    }
+    info!("  Fee amount: {}", total_input - total_output);
+
     let unsigned_tx = Transaction {
         version: transaction::Version(TX_VERSION),
         lock_time: absolute::LockTime::ZERO,
@@ -96,7 +103,7 @@ pub fn send_funding_transaction(rpc: &Client, config: &NetworkConfig, fee_amount
     let txid = rpc.send_raw_transaction(&signed_tx.hex).unwrap();
     info!("  Transaction ID: {}", txid);
     
-    txid
+    (txid, fee)
 }
 
 pub fn simulate_psbt_signing(
@@ -118,7 +125,7 @@ pub fn simulate_psbt_signing(
     let vout = previous_tx
         .output
         .iter()
-        .position(|vout| vout.value == AMOUNT_PER_USER * POOL_USERS.try_into().unwrap())
+        .position(|vout| vout.value == AMOUNT_PER_USER * POOL_USERS.try_into().unwrap() + fee_amount)
         .unwrap() as u32;
     info!("  Using vout: {}", vout);
     
@@ -132,7 +139,7 @@ pub fn simulate_psbt_signing(
     }];
     
     let outputs = vec![TxOut {
-        value: AMOUNT_PER_USER * POOL_USERS.try_into().unwrap(),
+        value: AMOUNT_PER_USER * POOL_USERS.try_into().unwrap() + fee_amount,
         script_pubkey: pool_address.script_pubkey(),
     }];
     

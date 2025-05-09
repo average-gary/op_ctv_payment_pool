@@ -23,16 +23,22 @@ pub fn create_entry_pool_withdraw_hashes(
     config: &NetworkConfig,
     pool_exit_ammount: Amount,
 ) -> Vec<[u8; 32]> {
+    info!("Creating entry pool withdraw hashes:");
+    info!("  Number of addresses: {}", addresses.len());
+    info!("  Pool exit amount: {}", pool_exit_ammount);
     let mut entry_pool_withdraw_hashes = Vec::new();
 
     for (i, address) in addresses.iter().enumerate() {
         let users: Vec<_> = (0..POOL_USERS).filter(|&x| x != i).collect();
+        info!("  Processing user {} withdraw hash:", i);
+        info!("    Address: {}", address);
+        info!("    Remaining users: {:?}", users);
 
         let key = users.clone();
-
         let triple_spend_info = &second_pool_addresses[&key];
-
         let addr = Address::p2tr_tweaked(triple_spend_info.output_key(), config.network);
+        info!("    Next pool address: {}", addr);
+        
         let ctv_hash = create_withdraw_ctv_hash(&addr, address, anchor_addr, pool_exit_ammount);
         entry_pool_withdraw_hashes.push(ctv_hash);
     }
@@ -211,20 +217,27 @@ pub fn process_pool_spend(
     anchor_addr: &Address,
     mining_address: &Address,
 ) -> Result<Txid> {
+    info!("Processing pool spend for user {}:", spender_index);
+    info!("  Previous transaction ID: {}", previous_txid);
+    
     let pool_amount = (AMOUNT_PER_USER) * (POOL_USERS - spender_index).try_into()?;
+    info!("  Pool amount: {}", pool_amount);
 
     let previous_tx: Transaction = rpc.get_raw_transaction(&previous_txid, None).unwrap();
-
     let vout = previous_tx
         .output
         .iter()
         .position(|vout| vout.value == pool_amount)
         .unwrap() as u32;
+    info!("  Vout for pool amount: {}", vout);
 
     //create final exit tx for last two users
     if spender_index == POOL_USERS - 2 {
+        info!("Processing final exit transaction for last two users");
         let last_index = addresses.len() - 1;
         let second_last_index = last_index - 1;
+        info!("  Second last user index: {}", second_last_index);
+        info!("  Last user index: {}", last_index);
 
         let last_pool_withdraw_hash = create_withdraw_ctv_hash(
             &addresses[second_last_index],
@@ -290,18 +303,20 @@ pub fn process_pool_spend(
     }
 
     let pool_exit_amount = (AMOUNT_PER_USER) * (POOL_USERS - spender_index - 1).try_into()?;
+    info!("  Pool exit amount: {}", pool_exit_amount);
 
     let recipient_pool: Vec<usize> = ((spender_index + 1)..POOL_USERS).collect();
+    info!("  Recipient pool users: {:?}", recipient_pool);
 
     let previous_pool: Vec<usize> = if spender_index == 0 {
         vec![(0)]
     } else {
         (spender_index..POOL_USERS).collect()
     };
+    info!("  Previous pool users: {:?}", previous_pool);
 
     let pool_num = pools.len() - 2 - spender_index;
-
-    info!("previous pool: {:?}", previous_pool);
+    info!("  Pool number: {}", pool_num);
 
     let withdraw_parent_serialized_tx = send_from_pool(
         pools,

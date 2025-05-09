@@ -28,6 +28,9 @@ pub const TX_VERSION: i32 = 2;
 #[cfg(feature = "regtest")]
 pub const TX_VERSION: i32 = 3;
 
+#[cfg(feature = "testnet4")]
+pub const TX_VERSION: i32 = 2;
+
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct NetworkConfig {
@@ -47,6 +50,17 @@ impl NetworkConfig {
                 port: "18443",
                 fee_anchor_addr: "bcrt1pfeesnyr2tx",
                 wallet_name: "simple_ctv".to_string(),
+            };
+        }
+        #[cfg(feature = "testnet4")]
+        {
+            let wallet_name = env::var("TESTNET4_WALLET").expect("TESTNET4_WALLET env var not set");
+            info!("wallet name: {} \n", wallet_name);
+            return Self {
+                network: Network::Testnet4,
+                port: "48332",
+                fee_anchor_addr: "tb1pfees9rn5nz",
+                wallet_name,
             };
         }
         #[cfg(feature = "signet")]

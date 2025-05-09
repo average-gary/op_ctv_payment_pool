@@ -11,9 +11,12 @@ itertools = "0.13.0"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 anyhow = "1.0.95"
+nostr-sdk = "0.41.0"
+nostr = "0.41.0"
 
 
 [features]
-default = ["regtest"]
+default = ["testnet4"]
 signet = []
 regtest = []
+testnet4 = []

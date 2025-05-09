@@ -107,7 +107,7 @@ fn main() -> Result<()> {
     info!("Initial pool address: {}", pool_0_addr);
 
     //here we will simulate the pool psbt funding transaction
-    let pool_funding_txid = simulate_psbt_signing(&rpc, init_wallets_txid, &pool_0_addr)?;
+    let pool_funding_txid = simulate_psbt_signing(&rpc, init_wallets_txid, &pool_0_addr, FEE_AMOUNT)?;
     info!("Pool funding transaction details:");
     info!("  Transaction ID: {}", pool_funding_txid);
     info!("  Source TXID: {}", init_wallets_txid);

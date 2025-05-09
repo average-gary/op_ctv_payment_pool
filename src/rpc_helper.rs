@@ -85,6 +85,7 @@ pub fn simulate_psbt_signing(
     rpc: &Client,
     previous_txid: Txid,
     pool_address: &Address,
+    fee_amount: Amount,
 ) -> Result<Txid> {
     info!("Simulating PSBT signing:");
     info!("  Previous transaction ID: {}", previous_txid);
@@ -99,7 +100,7 @@ pub fn simulate_psbt_signing(
     let vout = previous_tx
         .output
         .iter()
-        .position(|vout| vout.value == AMOUNT_PER_USER * POOL_USERS.try_into().unwrap())
+        .position(|vout| vout.value == AMOUNT_PER_USER * POOL_USERS.try_into().unwrap() - fee_amount)
         .unwrap() as u32;
     info!("  Using vout: {}", vout);
     

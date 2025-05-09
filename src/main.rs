@@ -42,6 +42,7 @@ fn main() -> Result<()> {
 
     info!("Creating pool with {} users \n", POOL_USERS);
 
+    // TODO: allow for input for address list with weights.
     let withdraw_addresses: Vec<Address> = (0..POOL_USERS)
         .map(|_| {
             rpc.get_new_address(None, None)

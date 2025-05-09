@@ -9,7 +9,7 @@ use tracing::{error, info};
 // testnet: tb1pfees9rn5nz
 
 //this could be 240 for P2A but we set for 1000 for now so it works on signet with hard coded fee
-pub const FEE_AMOUNT: Amount = Amount::from_sat(1000);
+pub const FEE_AMOUNT: Amount = Amount::from_sat(5000);
 pub const DUST_AMOUNT: Amount = Amount::from_sat(546);
 pub const DEFAULT_FEE_RATE: u64 = 5000;
 

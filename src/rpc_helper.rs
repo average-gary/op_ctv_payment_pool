@@ -11,7 +11,7 @@ use bitcoincore_rpc::{
     Client, RpcApi,
 };
 use serde_json::json;
-use tracing::info;
+use tracing::{info, debug};
 
 use crate::{
     config::{NetworkConfig, DEFAULT_FEE_RATE, DUST_AMOUNT, INIT_WALLET_AMOUNT_FEE, TX_VERSION},
@@ -25,9 +25,11 @@ pub fn send_funding_transaction(rpc: &Client, config: &NetworkConfig, fee_amount
     info!("  Total amount: {}", AMOUNT_PER_USER * POOL_USERS.try_into().unwrap());
     
     let change_address = rpc.get_raw_change_address(None).unwrap();
+    let change_address_2 = rpc.get_raw_change_address(None).unwrap();
     info!("  Change address: {:?}", change_address);
+    info!("  Change address 2: {:?}", change_address_2);
 
-    let unspent = rpc.list_unspent(Some(1), None, None, None, None).unwrap();
+    let unspent = rpc.list_unspent(Some(0), None, None, Some(true), None).unwrap();
     info!("  Number of unspent outputs: {}", unspent.len());
     
     let mut inputs = Vec::new();
@@ -38,6 +40,7 @@ pub fn send_funding_transaction(rpc: &Client, config: &NetworkConfig, fee_amount
         info!("    TXID: {}", utxo.txid);
         info!("    Vout: {}", utxo.vout);
         info!("    Amount: {}", utxo.amount);
+        debug!("    UTXO details: {:?}", utxo);
         
         inputs.push(TxIn {
             previous_output: OutPoint {
@@ -49,17 +52,32 @@ pub fn send_funding_transaction(rpc: &Client, config: &NetworkConfig, fee_amount
         });
         
         total_input += utxo.amount;
+        debug!("    Running total input: {}", total_input);
     }
     
     info!("  Total input amount: {}", total_input);
+    info!("Total inputs: {:?}", inputs);
+    let fee = rpc.estimate_smart_fee(1, None).unwrap().fee_rate.unwrap();
+    let fee = Amount::from_sat((fee.to_sat() as f64 * 250.0) as u64); // Estimate for ~250 byte tx
+    info!("  Estimated fee: {} ({} sats/vB)", fee, fee.to_sat() as f64 / 250.0);
+    let amount_to_send = AMOUNT_PER_USER * POOL_USERS.try_into().unwrap() + fee;
+    let change = total_input - amount_to_send;
+    
+    if change < Amount::ZERO {
+        panic!("Not enough input to cover outputs and fee");
+    }
     
     let outputs = vec![
         TxOut {
-            value: AMOUNT_PER_USER * POOL_USERS.try_into().unwrap() - fee_amount,
+            value: amount_to_send,
             script_pubkey: change_address.assume_checked().script_pubkey(),
         },
+        TxOut {
+            value: change,
+            script_pubkey: change_address_2.assume_checked().script_pubkey(),
+        },
     ];
-    
+    info!("  Outputs: {:?}", outputs);
     let unsigned_tx = Transaction {
         version: transaction::Version(TX_VERSION),
         lock_time: absolute::LockTime::ZERO,
@@ -100,7 +118,7 @@ pub fn simulate_psbt_signing(
     let vout = previous_tx
         .output
         .iter()
-        .position(|vout| vout.value == AMOUNT_PER_USER * POOL_USERS.try_into().unwrap() - fee_amount)
+        .position(|vout| vout.value == AMOUNT_PER_USER * POOL_USERS.try_into().unwrap())
         .unwrap() as u32;
     info!("  Using vout: {}", vout);
     
